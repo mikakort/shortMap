@@ -22,10 +22,28 @@ import Globe from '../components/Globe.astro';
 
       <div class="max-w-3xl mx-auto">
         <div class="mb-8">
-          <Globe />
+          <div id="globe-or-itinerary">
+            <div id="globe-view"><Globe /></div>
+            <div id="loading-view" class="hidden h-32 justify-center items-center">
+              <span class="loader mr-2"></span>Calculating route...
+            </div>
+            <div id="itinerary-view" class="hidden"></div>
+          </div>
         </div>
 
-        <div class="bg-card rounded-lg shadow-lg p-6">
+        <div class="bg-card rounded-lg shadow-lg p-6 relative">
+          <div class="absolute top-4 right-4 flex items-center">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" id="return-to-start-toggle" class="sr-only peer" />
+              <div
+                class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:bg-primary transition-all duration-300 relative">
+                <div
+                  class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-300 peer-checked:translate-x-5">
+                </div>
+              </div>
+              <span class="ml-3 text-sm text-muted-foreground select-none">Return to starting location</span>
+            </label>
+          </div>
           <div class="space-y-6">
             <div class="space-y-4">
               <div class="space-y-2">
@@ -85,11 +103,13 @@ import Globe from '../components/Globe.astro';
               </button>
             </div>
 
-            <button
-              id="calculate-route"
-              class="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
-              Calculate Route
-            </button>
+            <div class="flex items-center justify-between mt-4">
+              <button
+                id="calculate-route"
+                class="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                Calculate Route
+              </button>
+            </div>
           </div>
 
           <div class="mt-8 space-y-4">
@@ -124,6 +144,9 @@ import Globe from '../components/Globe.astro';
   // Global variables
   let destinationCount = 1;
   const selectedAddresses: { [key: string]: string } = {};
+  let isLoading = false;
+  let itinerary: any = null;
+  let returnToStart = false;
 
   // Initialize the application
   async function init() {
@@ -189,9 +212,15 @@ import Globe from '../components/Globe.astro';
   function setupEventListeners() {
     const addDestinationBtn = document.getElementById('add-destination') as HTMLButtonElement;
     const calculateButton = document.getElementById('calculate-route') as HTMLButtonElement;
+    const returnToggle = document.getElementById('return-to-start-toggle') as HTMLInputElement;
 
     addDestinationBtn?.addEventListener('click', addDestination);
     calculateButton?.addEventListener('click', handleCalculateRoute);
+    if (returnToggle) {
+      returnToggle.addEventListener('change', (e) => {
+        returnToStart = (e.target as HTMLInputElement).checked;
+      });
+    }
   }
 
   // Add a new destination input
@@ -259,12 +288,21 @@ import Globe from '../components/Globe.astro';
         throw new Error('Please enter at least a starting location and one destination');
       }
 
+      isLoading = true;
+      itinerary = null;
+      renderDynamicContent();
       calculateButton.textContent = 'Calculating...';
       calculateButton.disabled = true;
 
       const result = await calculateRoute(addresses);
       console.log('API Response:', result);
+      itinerary = result;
+      isLoading = false;
+      renderDynamicContent();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
+      isLoading = false;
+      renderDynamicContent();
       if (error instanceof Error) {
         alert(error.message);
       } else {
@@ -274,6 +312,64 @@ import Globe from '../components/Globe.astro';
       calculateButton.textContent = 'Calculate Route';
       calculateButton.disabled = false;
     }
+  }
+
+  function renderDynamicContent() {
+    const globeView = document.getElementById('globe-view');
+    const loadingView = document.getElementById('loading-view');
+    const itineraryView = document.getElementById('itinerary-view');
+    if (!globeView || !loadingView || !itineraryView) return;
+    globeView.classList.add('hidden');
+    loadingView.classList.add('hidden');
+    loadingView.classList.remove('flex');
+    itineraryView.classList.add('hidden');
+    if (isLoading) {
+      loadingView.classList.remove('hidden');
+      loadingView.classList.add('flex');
+    } else if (itinerary) {
+      itineraryView.classList.remove('hidden');
+      itineraryView.innerHTML = `<div class="itinerary-result p-4 bg-muted rounded-lg">
+        <h3 class="font-semibold mb-2">Optimized Itinerary</h3>
+        <ul class="list-decimal ml-6">
+          ${itinerary.route.map((address: string, idx: number) => `<li>${address}</li>`).join('')}
+        </ul>
+        <div class="mt-2 text-sm text-muted-foreground">Total Distance: ${itinerary.totalDistance}</div>
+        <div id="map" style="height:400px" class="mt-4 rounded-lg"></div>
+      </div>`;
+      setTimeout(() => renderGoogleMap(itinerary.route), 100);
+    } else {
+      globeView.classList.remove('hidden');
+    }
+  }
+
+  function renderGoogleMap(addresses: string[]) {
+    if (!window.google || !window.google.maps) return;
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv) return;
+    const map = new window.google.maps.Map(mapDiv, {
+      zoom: 7,
+      center: { lat: 0, lng: 0 },
+    });
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({ map });
+    if (addresses.length < 2) return;
+    const waypoints = addresses.slice(1, -1).map((addr) => ({ location: addr, stopover: true }));
+    directionsService.route(
+      {
+        origin: addresses[0],
+        destination: addresses[addresses.length - 1],
+        waypoints,
+        travelMode: 'DRIVING',
+        optimizeWaypoints: false,
+      },
+      (result: any, status: string) => {
+        if (status === 'OK') {
+          directionsRenderer.setDirections(result);
+        } else {
+          mapDiv.innerHTML = '<div class="text-red-500">Could not display route on map.</div>';
+        }
+      }
+    );
   }
 
   // Collect all addresses from the selectedAddresses object
@@ -298,13 +394,20 @@ import Globe from '../components/Globe.astro';
       addresses.push(selectedAddresses[key]);
     });
 
+    if (returnToStart && selectedAddresses['start-location']) {
+      addresses.push(selectedAddresses['start-location']);
+    }
+
     console.log('Selected addresses object:', selectedAddresses);
     console.log('Final collected addresses array:', addresses);
     return addresses;
   }
 
   // Initialize when DOM is loaded
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    renderDynamicContent();
+    init();
+  });
 
   function clearAutocompleteField(id: string) {
     const el = document.getElementById(id) as any;
@@ -321,5 +424,11 @@ import Globe from '../components/Globe.astro';
 <style>
   input {
     transition: all 0.2s ease-in-out;
+  }
+  .dot {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  input[type='checkbox'].peer:checked ~ .w-11 .dot {
+    transform: translateX(20px);
   }
 </style>
