@@ -1,11 +1,159 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
+import Globe from '../components/Globe.astro';
 
 // Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="ShortMap - Optimize Your Route">
+  <main class="min-h-screen bg-gradient-to-b from-background to-muted">
+    <div class="container mx-auto px-4 py-16">
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold tracking-tight text-primary mb-4">ShortMap</h1>
+        <p class="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Optimize your journey by finding the shortest route between multiple destinations
+        </p>
+      </div>
+
+      <div class="max-w-3xl mx-auto">
+        <div class="mb-8">
+          <Globe />
+        </div>
+
+        <div class="bg-card rounded-lg shadow-lg p-6">
+          <div class="space-y-6">
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label for="start-location" class="text-sm font-medium text-foreground"> Starting Location </label>
+                <div class="relative">
+                  <input
+                    type="text"
+                    id="start-location"
+                    class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder="Enter your starting point"
+                  />
+                  <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div id="destinations" class="space-y-2">
+                <label class="text-sm font-medium text-foreground"> Destinations </label>
+                <div class="space-y-2">
+                  <div class="relative">
+                    <input
+                      type="text"
+                      class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      placeholder="Enter destination"
+                    />
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                id="add-destination"
+                class="w-full p-2 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5v14"></path>
+                </svg>
+                Add another destination
+              </button>
+            </div>
+
+            <button
+              class="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+              Calculate Route
+            </button>
+          </div>
+
+          <div class="mt-8 space-y-4">
+            <h2 class="text-lg font-semibold text-foreground">Features</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 rounded-lg bg-muted">
+                <h3 class="font-medium mb-2">Optimized Routes</h3>
+                <p class="text-sm text-muted-foreground">Get the most efficient path between multiple destinations</p>
+              </div>
+              <div class="p-4 rounded-lg bg-muted">
+                <h3 class="font-medium mb-2">Real-time Updates</h3>
+                <p class="text-sm text-muted-foreground">Live traffic data for accurate journey times</p>
+              </div>
+              <div class="p-4 rounded-lg bg-muted">
+                <h3 class="font-medium mb-2">Easy to Use</h3>
+                <p class="text-sm text-muted-foreground">Simple interface for quick route planning</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
 </Layout>
+
+<script>
+  const addDestinationBtn = document.getElementById('add-destination');
+  const destinationsContainer = document.getElementById('destinations')?.querySelector('.space-y-2');
+
+  addDestinationBtn?.addEventListener('click', () => {
+    const newInput = document.createElement('div');
+    newInput.className = 'relative';
+    newInput.innerHTML = `
+      <input
+        type="text"
+        class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        placeholder="Enter destination"
+      />
+      <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </div>
+    `;
+    destinationsContainer?.appendChild(newInput);
+  });
+</script>
+
+<style>
+  input {
+    transition: all 0.2s ease-in-out;
+  }
+</style>
