@@ -129,6 +129,10 @@ import Globe from '../components/Globe.astro';
 </Layout>
 
 <script>
+  import { initializeRouteHandler } from '../scripts/routeHandler';
+  import { initializeAutocomplete } from '../scripts/googleMaps';
+
+  // Initialize destination adder
   const addDestinationBtn = document.getElementById('add-destination');
   const destinationsContainer = document.getElementById('destinations')?.querySelector('.space-y-2');
 
@@ -149,6 +153,17 @@ import Globe from '../components/Globe.astro';
       </div>
     `;
     destinationsContainer?.appendChild(newInput);
+
+    // Initialize autocomplete for the new input
+    const input = newInput.querySelector('input');
+    if (input) {
+      initializeAutocomplete(input);
+    }
+  });
+
+  // Initialize route handler
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeRouteHandler();
   });
 </script>
 
