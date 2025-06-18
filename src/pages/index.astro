@@ -6,6 +6,10 @@ import Globe from '../components/Globe.astro';
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
+<head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+
 <Layout title="ShortMap - Optimize Your Route">
   <main class="min-h-screen bg-gradient-to-b from-background to-muted">
     <div class="container mx-auto px-4 py-16">
@@ -33,21 +37,12 @@ import Globe from '../components/Globe.astro';
                     class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     placeholder="Enter your starting point"
                   />
-                  <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round">
-                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                  </div>
+                  <button
+                    type="button"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    onclick="clearAutocompleteField('start-location')">
+                    <!-- X icon SVG here -->
+                  </button>
                 </div>
               </div>
 
@@ -60,21 +55,12 @@ import Globe from '../components/Globe.astro';
                       class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       placeholder="Enter destination"
                     />
-                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-                        <circle cx="12" cy="10" r="3"></circle>
-                      </svg>
-                    </div>
+                    <button
+                      type="button"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onclick="clearAutocompleteField('destination-0')">
+                      <!-- X icon SVG here -->
+                    </button>
                   </div>
                 </div>
               </div>
@@ -100,6 +86,7 @@ import Globe from '../components/Globe.astro';
             </div>
 
             <button
+              id="calculate-route"
               class="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors">
               Calculate Route
             </button>
@@ -129,42 +116,206 @@ import Globe from '../components/Globe.astro';
 </Layout>
 
 <script>
-  import { initializeRouteHandler } from '../scripts/routeHandler';
-  import { initializeAutocomplete } from '../scripts/googleMaps';
+  import { initializeGoogleMaps, attachNativeAutocomplete } from '../scripts/googleMaps';
+  import { calculateRoute } from '../scripts/api';
 
-  // Initialize destination adder
-  const addDestinationBtn = document.getElementById('add-destination');
-  const destinationsContainer = document.getElementById('destinations')?.querySelector('.space-y-2');
+  const GOOGLE_MAPS_API_KEY = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  addDestinationBtn?.addEventListener('click', () => {
-    const newInput = document.createElement('div');
-    newInput.className = 'relative';
-    newInput.innerHTML = `
+  // Global variables
+  let destinationCount = 1;
+  const selectedAddresses: { [key: string]: string } = {};
+
+  // Initialize the application
+  async function init() {
+    if (!GOOGLE_MAPS_API_KEY) {
+      alert('Google Maps API key is not configured. Please check your environment variables.');
+      return;
+    }
+
+    try {
+      await initializeGoogleMaps(GOOGLE_MAPS_API_KEY);
+
+      // Initialize start location
+      const startLocationInput = document.getElementById('start-location') as HTMLInputElement;
+      if (startLocationInput) {
+        attachNativeAutocomplete(startLocationInput, (place: any) => {
+          if (place?.formatted_address) {
+            selectedAddresses['start-location'] = place.formatted_address;
+            startLocationInput.value = place.formatted_address;
+            console.log('Start location selected:', place.formatted_address);
+          }
+        });
+        // Add clear button functionality
+        const clearBtn = document.getElementById('clear-start-location');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            startLocationInput.value = '';
+            delete selectedAddresses['start-location'];
+          });
+        }
+      }
+
+      // Initialize initial destination
+      const destinationsContainer = document.getElementById('destinations') as HTMLDivElement;
+      const initialDestinationInput = destinationsContainer.querySelector('input') as HTMLInputElement;
+      if (initialDestinationInput) {
+        const initialId = `destination-0`;
+        initialDestinationInput.id = initialId;
+        attachNativeAutocomplete(initialDestinationInput, (place: any) => {
+          if (place?.formatted_address) {
+            selectedAddresses[initialId] = place.formatted_address;
+            initialDestinationInput.value = place.formatted_address;
+            console.log('Destination selected:', place.formatted_address);
+          }
+        });
+        // Add clear button functionality
+        const clearBtn = document.getElementById('clear-destination-0');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            initialDestinationInput.value = '';
+            delete selectedAddresses[initialId];
+          });
+        }
+      }
+
+      // Set up event listeners
+      setupEventListeners();
+    } catch (error) {
+      console.error('Failed to initialize Google Maps:', error);
+    }
+  }
+
+  // Set up all event listeners
+  function setupEventListeners() {
+    const addDestinationBtn = document.getElementById('add-destination') as HTMLButtonElement;
+    const calculateButton = document.getElementById('calculate-route') as HTMLButtonElement;
+
+    addDestinationBtn?.addEventListener('click', addDestination);
+    calculateButton?.addEventListener('click', handleCalculateRoute);
+  }
+
+  // Add a new destination input
+  function addDestination() {
+    const destinationsContainer = document.getElementById('destinations') as HTMLDivElement;
+    const destinationList = destinationsContainer.querySelector('.space-y-2');
+    if (!destinationList) return;
+
+    const destinationId = `destination-${destinationCount++}`;
+    const newInput = createDestinationInput(destinationId);
+    destinationList.appendChild(newInput.wrapper);
+    attachNativeAutocomplete(newInput.input, (place: any) => {
+      if (place?.formatted_address) {
+        selectedAddresses[destinationId] = place.formatted_address;
+        newInput.input.value = place.formatted_address;
+        console.log('New destination selected:', place.formatted_address);
+      }
+    });
+    // Add clear button functionality
+    const clearBtn = newInput.wrapper.querySelector('.remove-destination-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        newInput.input.value = '';
+        delete selectedAddresses[destinationId];
+        newInput.wrapper.remove();
+      });
+    }
+  }
+
+  // Create a new destination input element
+  function createDestinationInput(id: string): { wrapper: HTMLDivElement; input: HTMLInputElement } {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative mt-2';
+    wrapper.innerHTML = `
       <input
         type="text"
-        class="w-full p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="${id}"
+        class="w-full p-3 pr-10 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         placeholder="Enter destination"
       />
-      <div class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-      </div>
+      <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground remove-destination-btn" aria-label="Remove destination"><i class='fa-solid fa-circle-xmark'></i></button>
     `;
-    destinationsContainer?.appendChild(newInput);
-
-    // Initialize autocomplete for the new input
-    const input = newInput.querySelector('input');
-    if (input) {
-      initializeAutocomplete(input);
+    const input = wrapper.querySelector('input') as HTMLInputElement;
+    // Attach event listener to the X button
+    const removeBtn = wrapper.querySelector('.remove-destination-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        input.value = '';
+        delete selectedAddresses[id];
+        wrapper.remove();
+      });
     }
-  });
+    return { wrapper, input };
+  }
 
-  // Initialize route handler
-  document.addEventListener('DOMContentLoaded', () => {
-    initializeRouteHandler();
-  });
+  // Handle calculate route button click
+  async function handleCalculateRoute() {
+    const calculateButton = document.getElementById('calculate-route') as HTMLButtonElement;
+
+    try {
+      const addresses = collectAddresses();
+      console.log('Collected addresses:', addresses);
+
+      if (addresses.length < 2) {
+        throw new Error('Please enter at least a starting location and one destination');
+      }
+
+      calculateButton.textContent = 'Calculating...';
+      calculateButton.disabled = true;
+
+      const result = await calculateRoute(addresses);
+      console.log('API Response:', result);
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unexpected error occurred');
+      }
+    } finally {
+      calculateButton.textContent = 'Calculate Route';
+      calculateButton.disabled = false;
+    }
+  }
+
+  // Collect all addresses from the selectedAddresses object
+  function collectAddresses(): string[] {
+    const addresses: string[] = [];
+
+    // Get start location
+    if (selectedAddresses['start-location']) {
+      addresses.push(selectedAddresses['start-location']);
+    }
+
+    // Get all destinations in order
+    const destinationKeys = Object.keys(selectedAddresses)
+      .filter((key) => key.startsWith('destination-'))
+      .sort((a, b) => {
+        const numA = parseInt(a.split('-')[1], 10);
+        const numB = parseInt(b.split('-')[1], 10);
+        return numA - numB;
+      });
+
+    destinationKeys.forEach((key) => {
+      addresses.push(selectedAddresses[key]);
+    });
+
+    console.log('Selected addresses object:', selectedAddresses);
+    console.log('Final collected addresses array:', addresses);
+    return addresses;
+  }
+
+  // Initialize when DOM is loaded
+  document.addEventListener('DOMContentLoaded', init);
+
+  function clearAutocompleteField(id: string) {
+    const el = document.getElementById(id) as any;
+    if (el && el.tagName === 'GMP-PLACE-AUTOCOMPLETE') {
+      // Try to clear the underlying input
+      const input = el.inputElement || el.querySelector('input');
+      if (input) input.value = '';
+      // Optionally, clear from your selectedAddresses object
+      if (selectedAddresses[id]) delete selectedAddresses[id];
+    }
+  }
 </script>
 
 <style>

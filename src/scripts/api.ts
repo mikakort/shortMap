@@ -8,29 +8,31 @@ interface RouteError {
   error: string;
 }
 
-export async function calculateRoute(addresses: string[]): Promise<RouteResponse> {
+const API_URL = 'http://localhost:3000';
+
+export async function calculateRoute(
+  addresses: string[]
+): Promise<{ route: string[]; totalDistance: string; addresses: string[] }> {
   try {
-    const response = await fetch('/api/calculate-route', {
+    const response = await fetch(`${API_URL}/calculate-route`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
       },
       body: JSON.stringify({ addresses }),
-      credentials: 'include',
     });
 
     if (!response.ok) {
-      const errorData: RouteError = await response.json();
-      throw new Error(errorData.error || 'Failed to calculate route');
+      const errorData = await response.json().catch(() => ({ message: 'Failed to calculate route' }));
+      throw new Error(errorData.message || 'An unknown error occurred');
     }
 
-    const data: RouteResponse = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
+    console.error('API request failed:', error);
     if (error instanceof Error) {
-      throw new Error(`Route calculation failed: ${error.message}`);
+      throw error;
     }
-    throw new Error('An unexpected error occurred');
+    throw new Error('An unexpected error occurred during the API request');
   }
 }

@@ -9,6 +9,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@types/google.maps": "^3.58.1",
     "@types/three": "^0.177.0",
     "astro": "^5.9.4",
     "three": "^0.177.0"
