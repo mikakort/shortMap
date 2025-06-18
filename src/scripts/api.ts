@@ -10,12 +10,14 @@ interface RouteError {
 
 export async function calculateRoute(addresses: string[]): Promise<RouteResponse> {
   try {
-    const response = await fetch('http://localhost:3000/calculate-route', {
+    const response = await fetch('/api/calculate-route', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({ addresses }),
+      credentials: 'include',
     });
 
     if (!response.ok) {
